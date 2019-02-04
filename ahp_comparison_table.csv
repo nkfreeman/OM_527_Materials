@@ -1,0 +1,4 @@
+Criterion A,Criterion B,Score
+On Time Delivery,Unit Cost (absolute HIB),5
+On Time Delivery,Lead Time (Days) (relative HIB),9
+Unit Cost (absolute HIB),Lead Time (Days) (relative HIB),3
