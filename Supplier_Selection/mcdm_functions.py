@@ -5,8 +5,8 @@ def normalize_weights_dictionary(weights_dict):
 
     Arguments
     ----------    
-    weights_dict: a dictionary containing the columns to be included in the weighted sum as keys,
-    and the associated values as values
+    weights_dict: a dictionary containing the columns to be included in the weighted sum 
+    as keys, and the associated values as values
     
     Returns
     ------
@@ -23,7 +23,7 @@ def normalize_array(array):
 
     Arguments
     ----------    
-    array: a python list or numpy array containing values to normalize.
+    array: a python list, pandas series, or numpy array containing values to normalize.
     
     Returns
     ------
@@ -32,6 +32,7 @@ def normalize_array(array):
     """   
     from sklearn import preprocessing
     import numpy as np
+    import pandas as pd
     
     temp_array = np.array(array)
     temp_array = temp_array.reshape(-1,1)
@@ -330,6 +331,114 @@ def ahp_weight_determination(criteria, criteria_scores):
     else:
         print('The dimensions of the criteria_scores array do not match the number of specified criteria')
 
+        
+
+def robust_ranking(self,
+                   index_column,
+                   perturbation_range = 0.1,
+                   top_values = 5,
+                   perturbations = 100,
+                   random_seed = 0,
+                   show_plot = True):
+    
+    '''
+    Performs a robust ranking procedure that identfies the proportion of times where
+    the available alternatives appear as top choice under weight perturbations in the
+    range defined by the perturbation_range.
+
+    Parameters
+    ----------
+    data : a pandas DataFrame object that contains the specified columns
+        
+    weights_dict: a dictionary containing the columns to be included in the weighted product as keys,
+    and the associated values as values
+    
+    index_column: a string specifying the column of alternatives
+    
+    show_plot: True or False to denote whether or not a plot of
+    the robust rankings should be produced
+        
+    perturbations: an integer specifying the number of times to
+        perturb the weights
+    
+    top_values: specifies the number of alternatives to keep from each ranking (highest ranked scores kept)
+    
+    perturbation_range: The perturbation range to consider (expressed as a proportion)    \
+    
+    random_seed: float specifying seed for random number generator
+    
+
+    Yields
+    ------
+    a DataFrame indicating the proportion of times each alternative appears in top ranking
+    '''
+    import numpy as np
+    import pandas as pd
+
+    np.random.seed(random_seed)
+
+    criteria = list(self.weights_dict.keys())
+    starting_weights = np.array(list(self.weights_dict.values()))
+
+    a = np.zeros(shape = (len(self.data.index), 4))
+    counts_df = pd.DataFrame(a, columns=[index_column, 'WS', 'WP', 'TOPSIS'])
+    counts_df[index_column] = self.data[index_column]
+
+    for perturbation in range(perturbations):
+        perturbation_vector = 1.0 + np.random.uniform(low = -1.0*perturbation_range,
+                                                        high = perturbation_range,
+                                                        size= len(starting_weights))
+
+        perturbed_weights = perturbation_vector * starting_weights
+        perturbed_weights = list(perturbed_weights/perturbed_weights.sum())
+        perturbed_weights_dict = dict(zip(criteria, perturbed_weights))
+
+        a = np.zeros(shape = (len(self.data.index), 4))
+        df = pd.DataFrame(a, columns=[index_column, 'WS', 'WP', 'TOPSIS'])
+        df[index_column] = self.data[index_column]
+        df['WS'] = compute_weighted_sum(self.data, perturbed_weights_dict)
+        df['WP'] = compute_weighted_product(self.data, perturbed_weights_dict)
+        df['TOPSIS'] = compute_TOPSIS(self.data, perturbed_weights_dict)
+
+        WS_top = df.nlargest(top_values, 'WS')[index_column].tolist()
+        WP_top = df.nlargest(top_values, 'WP')[index_column].tolist()
+        TOPSIS_top = df.nlargest(top_values, 'TOPSIS')[index_column].tolist()
+
+        counts_df.loc[counts_df[index_column].isin(WS_top), 'WS'] += 1
+        counts_df.loc[counts_df[index_column].isin(WP_top), 'WP'] += 1
+        counts_df.loc[counts_df[index_column].isin(TOPSIS_top), 'TOPSIS'] += 1
+
+    counts_df[['WS', 'WP', 'TOPSIS']] = counts_df[['WS', 'WP', 'TOPSIS']]/perturbations
+    counts_df = counts_df.sort_values(['WS', 'WP', 'TOPSIS'], ascending = False)
+    mask = counts_df[['WS', 'WP', 'TOPSIS']].sum(axis = 1) > 0
+    counts_df = counts_df[mask]
+
+    if show_plot:
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        
+        plot_df = counts_df.melt(id_vars = 'Company Name')
+
+        fig, ax = plt.subplots(1,1, figsize = (10, 6))
+        sns.barplot(x = 'Company Name',
+                    y = 'value',
+                    hue = 'variable',
+                    data = plot_df,
+                    edgecolor = 'k'
+                   )
+
+        ax.tick_params(axis = 'x', rotation = 30, labelsize = 12)
+        ax.set_xticklabels(ax.get_xticklabels(), ha = 'right')
+        ax.tick_params(axis = 'y', labelsize = 12)
+        ax.set_ylabel('Proportion', fontsize = 14)
+        
+        handles, labels = ax.get_legend_handles_labels()
+        lgd = ax.legend(handles, labels, loc='upper center', bbox_to_anchor=(1.1, 0.5))
+
+        plt.show()
+       
+    return counts_df
+        
 
 class mcdm_instance():
     '''
@@ -351,4 +460,6 @@ class mcdm_instance():
         
         self.data['WS'] = compute_weighted_sum(self.data, self.weights_dict)
         self.data['WP'] = compute_weighted_product(self.data, self.weights_dict)
-        self.data['TOPSIS'] = compute_TOPSIS(self.data, self.weights_dict)    
+        self.data['TOPSIS'] = compute_TOPSIS(self.data, self.weights_dict)  
+        
+    perform_robust_ranking = robust_ranking
