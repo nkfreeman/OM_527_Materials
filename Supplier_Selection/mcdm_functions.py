@@ -418,28 +418,3 @@ def robust_ranking(data,
     counts_df = counts_df[mask]
     
     return counts_df
-        
-
-class mcdm_instance():
-    '''
-    A class for a multi-criteria decision-making instance. The class accepts a 
-    DataFrame (df) that should include columns for each ranking attribute and rows 
-    for each alternative. The scores for each ranking attribute should be normalized
-    and in a "high is better" format. The class also requires a dictionary of weights
-    (weights_dict). The dictionary keys specify columns in the data that will be used
-    to evaluate alternatives. Any normalization of the weights should be done before
-    constructing the class.
-    '''
-    
-    def __init__(self, 
-                 df, 
-                 weights_dict):
-        
-        self.data = df
-        self.weights_dict = weights_dict
-        
-        self.data['WS'] = compute_weighted_sum(self.data, self.weights_dict)
-        self.data['WP'] = compute_weighted_product(self.data, self.weights_dict)
-        self.data['TOPSIS'] = compute_TOPSIS(self.data, self.weights_dict)  
-        
-    perform_robust_ranking = robust_ranking
